@@ -1,3 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Archive Index</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 2rem;
+  }
+  h1 {
+    margin-bottom: 1.5rem;
+  }
+  .folder {
+    margin-bottom: 1rem;
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    font-size: 1.2em;
+  }
+  .files {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+    display: none; /* start collapsed */
+  }
+  a {
+    color: #0366d6;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Archive Index</h1>
+
 <!-- Folder Template -->
 <div class="folder" onclick="toggleFolder(this)">📁 AB Chem</div>
 <ul class="files">
@@ -22,7 +62,7 @@
       <li><a href="TRYPTAMINE (11_29_2025 8：49：32 PM).html">Tryptamines</a></li>
     </ul>
   </li>
-
+</ul>
 <div class="folder" onclick="toggleFolder(this)">📁 Novel science shop</div>
 <ul class="files">
     <!-- Subfolder inside main folder -->
@@ -39,3 +79,17 @@
         <li><a href="NovelscienceShop – Home (11_29_2025 11：18：50 PM).html">Home popup</a></li>
     </ul>
   </li>
+<script>
+function toggleFolder(folderElement) {
+  // The next element after the folder title is its file list
+  const fileList = folderElement.nextElementSibling;
+  if (fileList.style.display === "none" || fileList.style.display === "") {
+    fileList.style.display = "block";
+  } else {
+    fileList.style.display = "none";
+  }
+}
+</script>
+
+</body>
+</html>
