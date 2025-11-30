@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Archive index</title>
+<meta name="description" content="Index of archived HTML pages" />
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --muted:#93a3b8; --accent:#7dd3fc;
+    --glass: rgba(255,255,255,0.03);
+    color-scheme: dark;
+  }
+  html,body{height:100%; margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#071024 0%, #081425 100%); color:#e6eef8}
+  .wrap{max-width:1100px;margin:28px auto;padding:18px}
+  header{display:flex;gap:16px;align-items:center;justify-content:space-between}
+  h1{margin:0;font-size:1.4rem}
+  p.lead{margin:4px 0 0;color:var(--muted);font-size:0.92rem}
+  .controls{display:flex;gap:8px;align-items:center;margin:18px 0;flex-wrap:wrap}
+  .search{flex:1;min-width:180px}
+  input,select,button{background:var(--glass);border:1px solid rgba(255,255,255,0.03);padding:10px 12px;border-radius:8px;color:inherit}
+  input::placeholder{color:rgba(230,238,248,0.45)}
+  .pill{display:inline-flex;gap:8px;align-items:center;padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.02)}
+  #list{display:grid;grid-template-columns:1fr;gap:10px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:12px;border-radius:12px;display:flex;gap:12px;align-items:flex-start; border:1px solid rgba(255,255,255,0.02)}
+  .meta{min-width:48px;text-align:right;color:var(--muted);font-size:0.85rem}
+  .title{font-weight:600}
+  .desc{color:var(--muted);margin-top:6px;font-size:0.92rem}
+  .tags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:0.8rem;padding:4px 8px;border-radius:999px;background:rgba(125,211,252,0.07);color:var(--accent);border:1px solid rgba(125,211,252,0.06)}
+  .actions{margin-left:auto;display:flex;gap:6px}
+  .btn{padding:8px 10px;border-radius:8px;cursor:pointer}
+  .preview{position:fixed;right:18px;top:18px;width:420px;height:72vh;background:#05101b;border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 40px rgba(2,6,23,0.6);display:flex;flex-direction:column;gap:8px}
+  .preview iframe{flex:1;border-radius:8px;border:1px solid rgba(255,255,255,0.03);width:100%}
+  .small{font-size:0.85rem;color:var(--muted)}
+  footer{margin-top:20px;color:var(--muted);font-size:0.9rem}
+  @media(max-width:1100px){ .preview{position:static;width:100%;height:300px;margin-top:12px} .wrap{padding:12px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Archived pages — index</h1>
+        <p class="lead">Search, preview and open your archived HTML files. Configure the list below (see comments in this file).</p>
+      </div>
+      <div class="pill">
+        <span id="count">0</span>
+        <small style="color:var(--muted)">items</small>
+      </div>
+    </header>
+
+    <div class="controls">
+      <input id="q" class="search" placeholder="Search filenames or descriptions..." />
+      <select id="sort">
+        <option value="name-asc">Name ↑</option>
+        <option value="name-desc">Name ↓</option>
+        <option value="date-desc">Date (new → old)</option>
+        <option value="date-asc">Date (old → new)</option>
+      </select>
+      <select id="tagFilter">
+        <option value="">All tags</option>
+      </select>
+      <button id="refresh" class="btn">Refresh</button>
+      <div style="margin-left:auto" class="small">Mode: <span id="modeLabel">auto</span></div>
+    </div>
+
+    <div id="list" aria-live="polite"></div>
+
+    <footer>
+      Tip: to auto-generate a `files.json` that this page can read, create a small script that outputs an array of objects:
+      <pre style="white-space:pre-wrap;background:#071526;padding:8px;border-radius:6px;margin-top:8px;color:var(--muted);font-size:0.9rem">
+[
+  {"path":"pages/example1.html","title":"Example 1","description":"Archived copy of ...","date":"2025-11-20","tags":["news","blog"]},
+  {"path":"pages/example2.html","title":"Example 2","description":"Another page","date":"2025-11-21","tags":["snapshot"]}
+]
+      </pre>
+    </footer>
+  </div>
+
+  <div id="previewPanel" class="preview" style="display:none">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="font-weight:700" id="previewTitle">Preview</div>
+      <div style="margin-left:auto" id="previewMeta" class="small"></div>
+    </div>
+    <iframe id="previewFrame" title="preview"></iframe>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="openNew" class="btn">Open in new tab</button>
+      <button id="closePreview" class="btn">Close</button>
+    </div>
+  </div>
+
+<script>
+/*
+  Configuration:
+  - MODE: 'auto' (tries files.json, then GitHub if configured, then manual), 'manual', 'github', 'filesjson'
+  - If using GitHub mode, set GITHUB_MODE = true and fill OWNER, REPO, PATH. PATH is the folder containing your html files ('' for root).
+  - If you want to manually maintain the list, set MANUAL_MODE = true and populate manualFiles below.
+*/
+const CONFIG = {
+  MODE: 'auto',        // 'auto' | 'manual' | 'github' | 'filesjson'
+  GITHUB_MODE: false,  // set to true to try GitHub API
+  OWNER: '',           // GitHub owner or org
+  REPO: '',            // GitHub repo
+  PATH: '',            // path inside repo (no leading slash). e.g. 'archives'
+  FILES_JSON: '/files.json', // relative path to JSON file listing archived files
+  MAX_DISPLAY: 1000
+};
+
+/* Sample manualFiles (only used if manual mode or fallback). Edit or replace with your own. */
+const manualFiles = [
+  // Example:
+  // { path: 'pages/example1.html', title: 'Example 1', description: 'Archived page', date: '2025-11-20', tags: ['snapshot'] }
+];
+
+/* --- End of user config --- */
+
+const state = { files: [], tags: new Set(), filtered: [] };
+
+const $ = id => document.getElementById(id);
+const modeLabel = $('modeLabel');
+const countEl = $('count');
+const listEl = $('list');
+const qInput = $('q');
+const sortSel = $('sort');
+const tagFilter = $('tagFilter');
+const refreshBtn = $('refresh');
+const previewPanel = $('previewPanel');
+const previewFrame = $('previewFrame');
+const previewTitle = $('previewTitle');
+const previewMeta = $('previewMeta');
+const openNew = $('openNew');
+const closePreview = $('closePreview');
+
+function humanDate(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString();
+}
+
+/* Try modes in order */
+async function loadFiles(){
+  state.files = [];
+  modeLabel.textContent = CONFIG.MODE;
+  if(CONFIG.MODE === 'manual') {
+    state.files = manualFiles.slice();
+    finalizeLoad('manual (user)');
+    return;
+  }
+  // MODE 'auto': try files.json -> github (if enabled) -> manual
+  // MODE 'filesjson': only files.json
+  if(CONFIG.MODE === 'filesjson' || CONFIG.MODE === 'auto'){
+    try {
+      const resp = await fetch(CONFIG.FILES_JSON, {cache: "no-store"});
+      if(!resp.ok) throw new Error('no files.json');
+      const data = await resp.json();
+      if(Array.isArray(data)) {
+        state.files = data.slice(0, CONFIG.MAX_DISPLAY);
+        finalizeLoad('files.json');
+        return;
+      }
+    } catch(e){
+      // continue to next
+      console.warn('files.json load failed', e);
+    }
+  }
+
+  if((CONFIG.MODE === 'github' || CONFIG.MODE === 'auto') && CONFIG.GITHUB_MODE && CONFIG.OWNER && CONFIG.REPO){
+    try {
+      modeLabel.textContent = 'github';
+      await loadFromGithub();
+      if(state.files.length) { finalizeLoad('github'); return; }
+    } catch(e){
+      console.warn('github load failed', e);
+    }
+  }
+
+  // fallback to manual
+  state.files = manualFiles.slice();
+  finalizeLoad('manual (fallback)');
+}
+
+async function loadFromGithub(){
+  // fetch repo contents via GitHub API
+  // public repo doesn't require auth; for private, user would need to provide token (not implemented)
+  // Pagination: if PATH contains many files, might need to follow 'tree' endpoint; here we use contents endpoint for simplicity
+  const base = `https://api.github.com/repos/${encodeURIComponent(CONFIG.OWNER)}/${encodeURIComponent(CONFIG.REPO)}/contents/${encodeURIComponent(CONFIG.PATH || '')}`;
+  const resp = await fetch(base);
+  if(!resp.ok) throw new Error('github API error ' + resp.status);
+  const entries = await resp.json();
+  const htmlFiles = (entries || []).filter(e => e.type === 'file' && e.name.toLowerCase().endsWith('.html'));
+  // Map to our format
+  state.files = htmlFiles.map(e => ({
+    path: e.path,
+    title: e.name,
+    description: '',
+    date: '', // will attempt to fetch later if needed
+    tags: []
+  })).slice(0, CONFIG.MAX_DISPLAY);
+}
+
+/* Render list */
+function finalizeLoad(modeText){
+  modeLabel.textContent = modeText;
+  state.tags = new Set();
+  state.files.forEach(f=>{
+    if(!f.title && f.path) f.title = f.path.split('/').pop();
+    if(!f.description) f.description = '';
+    if(!Array.isArray(f.tags)) f.tags = [];
+    f.tags.forEach(t=> state.tags.add(t));
+  });
+  populateTagFilter();
+  applyFilters();
+}
+
+/* Tag dropdown */
+function populateTagFilter(){
+  tagFilter.innerHTML = '<option value="">All tags</option>';
+  const tags = Array.from(state.tags).sort();
+  tags.forEach(t=>{
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    tagFilter.appendChild(opt);
+  });
+}
+
+/* Filtering, searching, sorting */
+function applyFilters(){
+  const q = qInput.value.trim().toLowerCase();
+  const tag = tagFilter.value;
+  let items = state.files.filter(f=>{
+    if(tag && (!f.tags || !f.tags.includes(tag))) return false;
+    if(!q) return true;
+    const hay = (f.title + ' ' + (f.description||'') + ' ' + (f.path||'')).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  });
+  const sort = sortSel.value;
+  items.sort((a,b)=>{
+    if(sort.startsWith('name')){
+      const sa = (a.title||a.path||'').toLowerCase();
+      const sb = (b.title||b.path||'').toLowerCase();
+      if(sa<sb) return sort === 'name-asc' ? -1 : 1;
+      if(sa>sb) return sort === 'name-asc' ? 1 : -1;
+      return 0;
+    } else { // date sorts
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return sort === 'date-desc' ? (db - da) : (da - db);
+    }
+  });
+  state.filtered = items;
+  renderList();
+}
+
+/* Create list DOM */
+function renderList(){
+  listEl.innerHTML = '';
+  countEl.textContent = state.filtered.length;
+  if(state.filtered.length === 0){
+    listEl.innerHTML = '<div class="small" style="padding:12px;background:rgba(255,255,255,0.02);border-radius:8px">No results — try clearing filters or editing this file to configure your list.</div>';
+    return;
+  }
+  state.filtered.forEach((f, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'card';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = `<div class="small">${humanDate(f.date)}</div><div class="small">${f.path?.split('/').pop() ?? ''}</div>`;
+    const body = document.createElement('div');
+    body.style.flex = '1';
+    body.innerHTML = `<div class="title">${escapeHtml(f.title||f.path)}</div>
+                      <div class="desc">${escapeHtml(f.description||'')}</div>
+                      <div class="tags">${(f.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`;
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    actions.innerHTML = `
+      <button class="btn" data-action="open" data-path="${escapeAttr(f.path)}">Open</button>
+      <button class="btn" data-action="preview" data-path="${escapeAttr(f.path)}">Preview</button>
+      <button class="btn" data-action="download" data-path="${escapeAttr(f.path)}">Download</button>
+      <button class="btn" data-action="copy" data-path="${escapeAttr(f.path)}">Copy link</button>`;
+    card.appendChild(meta);
+    card.appendChild(body);
+    card.appendChild(actions);
+    listEl.appendChild(card);
+
+    // attach handlers
+    actions.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        const action = btn.dataset.action;
+        const path = btn.dataset.path;
+        const url = makeUrl(path);
+        if(action === 'open') window.open(url, '_blank');
+        if(action === 'preview') openPreview(f, url);
+        if(action === 'download') {
+          // open with download hint
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = '';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+        if(action === 'copy') {
+          navigator.clipboard?.writeText(url).then(()=>alert('Copied link to clipboard')).catch(()=>prompt('Copy this link:', url));
+        }
+      });
+    });
+  });
+}
+
+/* Helpers */
+function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
+function escapeAttr(s){ return (s||'').replace(/"/g, '&quot;'); }
+function makeUrl(path){
+  if(!path) return '';
+  // If path is absolute (starts with http), return as-is; else resolve relative to current origin
+  if(path.startsWith('http://') || path.startsWith('https://')) return path;
+  // If user site is GitHub pages and archived files are in same site, use relative path
+  return new URL(path, window.location.href).href;
+}
+
+/* Preview */
+function openPreview(file, url){
+  previewFrame.src = url;
+  previewTitle.textContent = file.title || file.path;
+  previewMeta.textContent = humanDate(file.date) + (file.tags && file.tags.length ? ' · ' + file.tags.join(', ') : '');
+  previewPanel.style.display = 'flex';
+  openNew.onclick = ()=> window.open(url, '_blank');
+}
+closePreview.addEventListener('click', ()=> { previewPanel.style.display = 'none'; previewFrame.src = 'about:blank'; });
+
+/* Wire up inputs */
+qInput.addEventListener('input', debounce(applyFilters, 150));
+sortSel.addEventListener('change', applyFilters);
+tagFilter.addEventListener('change', applyFilters);
+refreshBtn.addEventListener('click', ()=> loadFiles());
+
+/* Small debounce util */
+function debounce(fn, t=100){
+  let to;
+  return function(...a){ clearTimeout(to); to = setTimeout(()=> fn.apply(this,a), t); };
+}
+
+/* Try to fetch files on load */
+loadFiles();
+
+/* Optionally: attempt to fetch 'last-modified' for each file (best-effort). This will be skipped if too many files. */
+async function fetchLastModifiedForVisible(){
+  // try only for first 30 files to avoid lots of requests / rate limits
+  const toCheck = state.filtered.slice(0,30);
+  for(const f of toCheck){
+    try {
+      const url = makeUrl(f.path);
+      const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      if(head.ok){
+        const lm = head.headers.get('last-modified') || head.headers.get('Last-Modified');
+        if(lm) f.date = new Date(lm).toISOString();
+      }
+    } catch(e){
+      // ignore - cors or no head allowed
+    }
+  }
+  renderList();
+}
+/* call but don't await */
+fetchLastModifiedForVisible();
+
+</script>
+</body>
+</html>
