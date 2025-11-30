@@ -2,47 +2,72 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Site Index</title>
+<title>Archive Index</title>
+
 <style>
-  body { font-family: Arial, sans-serif; padding: 2rem; }
-  h1 { margin-bottom: 1rem; }
-  h2 { margin-top: 2rem; }
-  ul { line-height: 1.7; }
-  a { color: #0366d6; text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .folder { margin-bottom: 1.5rem; }
+  body {
+    font-family: Arial, sans-serif;
+    padding: 2rem;
+  }
+  h1 {
+    margin-bottom: 1.5rem;
+  }
+  .folder {
+    margin-bottom: 1rem;
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    font-size: 1.2em;
+  }
+  .files {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+    display: none; /* start collapsed */
+  }
+  a {
+    color: #0366d6;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
 </style>
 </head>
+
 <body>
 
 <h1>Archive Index</h1>
 
-<!-- Folder 1 -->
-<div class="folder">
-  <h2>AB Chem</h2>
-  <ul>
-    <li><a href="AB%20Chem/file1.html">file1.html</a></li>
-    <li><a href="AB%20Chem/file2.html">file2.html</a></li>
-    <li><a href="AB%20Chem/something-else.html">something-else.html</a></li>
-  </ul>
-</div>
+<!-- Folder Template -->
+<div class="folder" onclick="toggleFolder(this)">📁 AB Chem</div>
+<ul class="files">
+  <li><a href="AB%20Chem/file1.html">file1.html</a></li>
+  <li><a href="AB%20Chem/file2.html">file2.html</a></li>
+  <li><a href="AB%20Chem/something-else.html">something-else.html</a></li>
+</ul>
 
-<!-- Folder 2 -->
-<div class="folder">
-  <h2>Physics</h2>
-  <ul>
-    <li><a href="Physics/page1.html">page1.html</a></li>
-    <li><a href="Physics/page2.html">page2.html</a></li>
-  </ul>
-</div>
+<div class="folder" onclick="toggleFolder(this)">📁 Physics</div>
+<ul class="files">
+  <li><a href="Physics/page1.html">page1.html</a></li>
+  <li><a href="Physics/page2.html">page2.html</a></li>
+</ul>
 
-<!-- Folder 3 -->
-<div class="folder">
-  <h2>Misc</h2>
-  <ul>
-    <li><a href="Misc/example.html">example.html</a></li>
-  </ul>
-</div>
+<div class="folder" onclick="toggleFolder(this)">📁 Misc</div>
+<ul class="files">
+  <li><a href="Misc/example.html">example.html</a></li>
+</ul>
+
+<script>
+function toggleFolder(folderElement) {
+  // The next element after the folder title is its file list
+  const fileList = folderElement.nextElementSibling;
+  if (fileList.style.display === "none" || fileList.style.display === "") {
+    fileList.style.display = "block";
+  } else {
+    fileList.style.display = "none";
+  }
+}
+</script>
 
 </body>
 </html>
